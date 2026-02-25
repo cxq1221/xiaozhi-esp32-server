@@ -572,135 +572,14 @@ VAD:
 LLM:
   # 所有openai类型均可以修改超参，以AliLLM为例
   # 当前支持的type为openai、dify、ollama，可自行适配
-  AliLLM:
-    # 定义LLM API类型
-    type: openai
-    # 可在这里找到你的 api_key https://bailian.console.aliyun.com/?apiKey=1#/api-key
-    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-    model_name: qwen-turbo
-    api_key: 你的deepseek web key
-    temperature: 0.7  # 温度值
-    max_tokens: 500   # 最大生成token数
-    top_p: 1
-    frequency_penalty: 0  # 频率惩罚
-  AliAppLLM:
-    # 定义LLM API类型
-    type: AliBL
-    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-    app_id: 你的app_id
-    # 可在这里找到你的 api_key https://bailian.console.aliyun.com/?apiKey=1#/api-key
-    api_key: 你的api_key
-    # 是否不使用本地prompt：true|false (默不用请在百练应用中设置prompt)
-    is_no_prompt: true
-    # Ali_memory_id：false（不使用）|你的memory_id（请在百练应用中设置中获取）
-    # Tips！：Ali_memory未实现多用户存储记忆(记忆按id调用)
-    ali_memory_id: false
-  DoubaoLLM:
-    # 定义LLM API类型
-    type: openai
-    # 先开通服务，打开以下网址，开通的服务搜索Doubao-1.5-pro，开通它
-    # 开通地址：https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement?LLM=%7B%7D&OpenTokenDrawer=false
-    # 免费额度500000token
-    # 开通后，进入这里获取密钥：https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D
-    base_url: https://ark.cn-beijing.volces.com/api/v3
-    model_name: doubao-1-5-pro-32k-250115
-    api_key: 你的doubao web key
   DeepSeekLLM:
     # 定义LLM API类型
     type: openai
     # 可在这里找到你的api key https://platform.deepseek.com/
     model_name: deepseek-chat
     url: https://api.deepseek.com
-    api_key: 你的deepseek web key
-  ChatGLMLLM:
-    # 定义LLM API类型
-    type: openai
-    # glm-4-flash 是免费的，但是还是需要注册填写api_key的
-    # 可在这里找到你的api key https://bigmodel.cn/usercenter/proj-mgmt/apikeys
-    model_name: glm-4-flash
-    url: https://open.bigmodel.cn/api/paas/v4/
-    api_key: 你的chat-glm web key
-  OllamaLLM:
-    # 定义LLM API类型
-    type: ollama
-    model_name: qwen2.5 #  使用的模型名称，需要预先使用ollama pull下载
-    base_url: http://localhost:11434  # Ollama服务地址
-  DifyLLM:
-    # 定义LLM API类型
-    type: dify
-    # 建议使用本地部署的dify接口，国内部分区域访问dify公有云接口可能会受限
-    # 如果使用DifyLLM，配置文件里prompt(提示词)是无效的，需要在dify控制台设置提示词
-    base_url: https://api.dify.ai/v1
-    api_key: 你的DifyLLM web key
-    # 使用的对话模式 可以选择工作流 workflows/run 对话模式 chat-messages  文本生成 completion-messages
-    # 使用workflows进行返回的时候输入参数为 query 返回参数的名字要设置为 answer
-    # 文本生成的默认输入参数也是query
-    mode: chat-messages
-  GeminiLLM:
-    type: gemini
-    # 谷歌Gemini API，需要先在Google Cloud控制台创建API密钥并获取api_key
-    # 若在中国境内使用，请遵守《生成式人工智能服务管理暂行办法》
-    # token申请地址： https://aistudio.google.com/apikey
-    # 若部署地无法访问接口，需要开启科学上网
-    api_key: 你的gemini web key
-    model_name: "gemini-2.0-flash"
-    http_proxy: ""  #"http://127.0.0.1:10808"
-    https_proxy: "" #http://127.0.0.1:10808"
-  CozeLLM:
-    # 定义LLM API类型
-    type: coze
-    # 你可以在这里找到个人令牌
-    # https://www.coze.cn/open/oauth/pats
-    # bot_id和user_id的内容写在引号之内
-    bot_id: "你的bot_id"
-    user_id: "你的user_id"
-    personal_access_token: 你的coze个人令牌
-  VolcesAiGatewayLLM:
-    # 火山引擎 - 边缘大模型网关
-    # 定义LLM API类型
-    type: openai
-    # 先开通服务，打开以下网址，创建网关访问密钥，搜索并勾选 Doubao-pro-32k-functioncall ，开通
-    # 如果需要使用边缘大模型网关提供的语音合成，一并勾选 Doubao-语音合成 ，另见 TTS.VolcesAiGatewayTTS 配置
-    # https://console.volcengine.com/vei/aigateway/
-    # 开通后，进入这里获取密钥：https://console.volcengine.com/vei/aigateway/tokens-list
-    base_url: https://ai-gateway.vei.volces.com/v1
-    model_name: doubao-pro-32k-functioncall
-    api_key: 你的网关访问密钥
-  LMStudioLLM:
-    # 定义LLM API类型
-    type: openai
-    model_name: deepseek-r1-distill-llama-8b@q4_k_m # 使用的模型名称，需要预先在社区下载
-    url: http://localhost:1234/v1 # LM Studio服务地址
-    api_key: lm-studio # LM Studio服务的固定API Key
-  HomeAssistant:
-    # 定义LLM API类型
-    type: homeassistant
-    base_url: http://homeassistant.local:8123
-    agent_id: conversation.chatgpt
-    api_key: 你的home assistant api访问令牌
-  FastgptLLM:
-    # 定义LLM API类型
-    type: fastgpt
-    # 如果使用fastgpt，配置文件里prompt(提示词)是无效的，需要在fastgpt控制台设置提示词
-    base_url: https://host/api/v1
-    # 你可以在这里找到你的api_key
-    # https://cloud.tryfastgpt.ai/account/apikey
-    api_key: 你的fastgpt密钥
-    variables:
-      k: "v"
-      k2: "v2"
-  XinferenceLLM:
-    # 定义LLM API类型
-    type: xinference
-    # Xinference服务地址和模型名称
-    model_name: qwen2.5:72b-AWQ  # 使用的模型名称，需要预先在Xinference启动对应模型
-    base_url: http://localhost:9997  # Xinference服务地址
-  XinferenceSmallLLM:
-    # 定义轻量级LLM API类型，用于意图识别
-    type: xinference
-    # Xinference服务地址和模型名称
-    model_name: qwen2.5:3b-AWQ  # 使用的小模型名称，用于意图识别
-    base_url: http://localhost:9997  # Xinference服务地址
+    api_key: sk-00cb7169cf0a43b5a52174231ef5b140
+  
 # VLLM配置（视觉语言大模型）
 VLLM:
   ChatGLMVLLM:
