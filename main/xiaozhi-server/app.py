@@ -1,4 +1,5 @@
 import sys
+import os
 import uuid
 import signal
 import asyncio
@@ -13,7 +14,12 @@ from core.utils.gc_manager import get_gc_manager
 
 TAG = __name__
 logger = setup_logging()
+import os
 
+# 确保默认环境是 UTF-8
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+os.environ.setdefault("LANG", "zh_CN.UTF-8")
+os.environ.setdefault("LC_ALL", "zh_CN.UTF-8")
 
 async def wait_for_exit() -> None:
     """

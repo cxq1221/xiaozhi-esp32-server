@@ -3,6 +3,8 @@ from aiohttp import web
 from config.logger import setup_logging
 from core.api.ota_handler import OTAHandler
 from core.api.vision_handler import VisionHandler
+from core.api.xiaozhi_updates_handler import XiaozhiUpdatesHandler
+from core.api.xiaozhi_reply_handler import XiaozhiReplyHandler
 
 TAG = __name__
 
@@ -13,6 +15,8 @@ class SimpleHttpServer:
         self.logger = setup_logging()
         self.ota_handler = OTAHandler(config)
         self.vision_handler = VisionHandler(config)
+        self.xiaozhi_updates_handler = XiaozhiUpdatesHandler(config)
+        self.xiaozhi_reply_handler = XiaozhiReplyHandler(config)
 
     def _get_websocket_url(self, local_ip: str, port: int) -> str:
         """获取websocket地址
@@ -72,6 +76,12 @@ class SimpleHttpServer:
                         web.options(
                             "/mcp/vision/explain", self.vision_handler.handle_options
                         ),
+                        # OpenClaw 长轮询拉取接口
+                        web.get("/xiaozhi/updates", self.xiaozhi_updates_handler.handle_get),
+                        web.options("/xiaozhi/updates", self.xiaozhi_updates_handler.handle_options),
+                        # OpenClaw 回复推送接口
+                        web.post("/xiaozhi/reply", self.xiaozhi_reply_handler.handle_post),
+                        web.options("/xiaozhi/reply", self.xiaozhi_reply_handler.handle_options),
                     ]
                 )
 

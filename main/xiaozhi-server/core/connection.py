@@ -17,7 +17,7 @@ from core.utils.util import (
     check_asr_update,
     filter_sensitive_info,
 )
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from collections import deque
 from core.utils.modules_initialize import (
     initialize_modules,
@@ -42,6 +42,8 @@ from core.utils.prompt_manager import PromptManager
 from core.utils.voiceprint_provider import VoiceprintProvider
 from core.utils.util import get_system_error_response
 from core.utils import textUtils
+from core.integration.xiaozhi_updates import push_message
+from core.integration.openclaw_sender import send_to_openclaw
 
 
 TAG = __name__
@@ -191,6 +193,9 @@ class ConnectionHandler:
 
             # 认证通过,继续处理
             self.websocket = ws
+
+            # 注册到在线连接表，便于 HTTP 接口按 device_id 推送
+            await register_active_connection(self)
 
             # 检查是否来自MQTT连接
             request_path = ws.request.path
@@ -795,8 +800,34 @@ class ConnectionHandler:
         self.dialogue.update_system_message(self.prompt)
 
     def chat(self, query, depth=0):
+        route_to_openclaw = False
         if query is not None:
             self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
+
+            # depth == 0 代表用户发起的顶层对话，根据规则决定是否交给 OpenClaw 处理
+            if depth == 0:
+                try:
+                    route_to_openclaw = self._should_route_to_openclaw(query)
+                    if route_to_openclaw:
+                        device_id = self.device_id or "esp32_default"
+                        if hasattr(self, "loop") and self.loop is not None:
+                            asyncio.run_coroutine_threadsafe(
+                                push_message(device_id, query),
+                                self.loop,
+                            )
+                        self.logger.bind(tag=TAG).info(
+                            f"已将用户消息转发给 OpenClaw 处理: device_id={device_id}"
+                        )
+                    else:
+                        self.logger.bind(tag=TAG).info(
+                            "当前消息判定为本地简单任务，仅由 xiaozhi-server LLM 处理（不通知 OpenClaw）"
+                        )
+                except Exception as e:
+                    self.logger.bind(tag=TAG).error(f"push_message 失败: {e}")
+
+        # 顶层复杂任务交给 OpenClaw 后，本地不再调用大模型，等待 /xiaozhi/reply 回传结果
+        if depth == 0 and route_to_openclaw:
+            return
 
         # 为最顶层时新建会话ID和发送FIRST请求
         if depth == 0:
@@ -1119,6 +1150,9 @@ class ConnectionHandler:
     async def close(self, ws=None):
         """资源清理方法"""
         try:
+            # 从在线连接表中移除
+            await unregister_active_connection(self)
+
             # 清理音频缓冲区
             if hasattr(self, "audio_buffer"):
                 self.audio_buffer.clear()
@@ -1263,6 +1297,60 @@ class ConnectionHandler:
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"Chat and close error: {str(e)}")
 
+    def _should_route_to_openclaw(self, query: str) -> bool:
+        """
+        根据简单规则判断当前用户请求是否需要交给 OpenClaw 处理。
+
+        设计目标：
+        - 日常闲聊/简单问答：留在 xiaozhi-server 本地 LLM 处理。
+        - 涉及跨应用、消息转发、提醒、搜索/分析等「复杂任务」：转发给 OpenClaw。
+
+        规则来源：
+        - 优先使用 config.llm.routing.openclaw_prefix / openclaw_keywords
+        - 若未配置，则使用一组内置默认关键词。
+        """
+        try:
+            q = (query or "").strip()
+            if not q:
+                return False
+
+            llm_cfg = self.config.get("LLM") or self.config.get("llm") or {}
+            routing_cfg = llm_cfg.get("routing", {}) if isinstance(llm_cfg, dict) else {}
+
+            # 唤醒词前缀，例如「小爪，帮我……」强制走 OpenClaw
+            prefix = routing_cfg.get("openclaw_prefix", "小爪")
+            if prefix and q.startswith(prefix):
+                return True
+
+            # 关键词列表：包含任一关键词则认为是复杂任务
+            default_keywords = [
+                "发消息",
+                "转发",
+                "告诉",
+                "提醒我",
+                "闹钟",
+                "日程",
+                "查邮件",
+                "邮件",
+                "看消息",
+                "Telegram",
+                "飞书",
+                "微信",
+                "钉钉",
+                "Slack",
+                "帮我搜",
+                "调研",
+                "分析",
+                "报告",
+                "总结",
+            ]
+            keywords = routing_cfg.get("openclaw_keywords", default_keywords)
+            return any(kw in q for kw in keywords)
+        except Exception as e:
+            self.logger.bind(tag=TAG).error(f"_should_route_to_openclaw 出错: {e}")
+            # 出错时保守处理：不要打断主流程，默认为「不路由」
+            return False
+
     async def _check_timeout(self):
         """检查连接超时"""
         try:
@@ -1321,3 +1409,35 @@ class ConnectionHandler:
                 tool_calls_list[tool_index]["name"] = tool_call.function.name
             if tool_call.function.arguments:
                 tool_calls_list[tool_index]["arguments"] += tool_call.function.arguments
+
+
+# 在线连接注册表：按 device_id 映射到当前 ConnectionHandler，
+# 供 HTTP 接口（如 /xiaozhi/reply）按设备推送 TTS 文本。
+_active_connections: Dict[str, "ConnectionHandler"] = {}
+_active_lock = asyncio.Lock()
+
+
+async def register_active_connection(conn: "ConnectionHandler") -> None:
+    """将连接按 device_id 注册为在线连接。"""
+    if not conn.device_id:
+        return
+    async with _active_lock:
+        _active_connections[conn.device_id] = conn
+
+
+async def unregister_active_connection(conn: "ConnectionHandler") -> None:
+    """从在线连接表中移除指定连接。"""
+    if not conn.device_id:
+        return
+    async with _active_lock:
+        existing = _active_connections.get(conn.device_id)
+        if existing is conn:
+            del _active_connections[conn.device_id]
+
+
+async def get_active_connection_by_device_id(
+    device_id: str,
+) -> Optional["ConnectionHandler"]:
+    """根据 device_id 获取在线连接，如果不存在则返回 None。"""
+    async with _active_lock:
+        return _active_connections.get(device_id)
