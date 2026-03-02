@@ -6,6 +6,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小智服务器测试页面</title>
     <link rel="stylesheet" href="css/test_page.css?v=0205">
+    <style>
+        /* 提升首次配置弹窗的可读性与布局 */
+        #llmGuideModal .modal-content {
+            background-color: #ffffff;
+            color: #111111;
+            max-width: 960px;      /* 宽一点，方便阅读长文案 */
+            width: 90%;
+            margin: 5vh auto;      /* 垂直稍微居中一些，水平居中 */
+        }
+        #llmGuideModal .modal-body.llm-guide-body {
+            padding: 20px 24px 16px;
+            line-height: 1.6;
+        }
+        #llmGuideModal .llm-guide-body h3 {
+            margin: 8px 0 6px;
+        }
+        #llmGuideModal .llm-guide-body h4 {
+            margin: 12px 0 4px;
+        }
+        #llmGuideModal .llm-guide-body p {
+            margin: 4px 0 6px;
+        }
+        #llmGuideModal .llm-guide-body ol {
+            margin: 4px 0 10px 1.2em;
+            padding-left: 1.2em;
+        }
+        #llmGuideModal .llm-guide-body li {
+            margin-bottom: 4px;
+        }
+        #llmGuideModal .modal-body pre {
+            background-color: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        #llmGuideModal code {
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
     <script>
         // 检测是否使用file://协议打开
         if (window.location.protocol === 'file:') {
@@ -101,6 +141,18 @@
                 <span class="btn-text">设置</span>
             </button>
 
+            <button class="control-btn" id="llmGuideOpenBtn" title="配置大模型">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <!-- 大星星 -->
+                    <path d="M12 3.5l1.4 3.1 3.3.5-2.4 2.4.6 3.4L12 11.3 9.1 13l.6-3.4L7.3 7.1l3.3-.5L12 3.5z" />
+                    <!-- 左下小星星 -->
+                    <path d="M6 15.5l.8 1.7 1.8.3-1.3 1.3.3 1.8L6 19.8 4.4 20.6l.3-1.8L3.5 17.5l1.8-.3L6 15.5z" />
+                    <!-- 右上小星星 -->
+                    <path d="M17.5 12l.7 1.4 1.5.2-1.1 1.1.2 1.5-1.3-.7-1.3.7.2-1.5-1.1-1.1 1.5-.2 1.1-1.4z" />
+                  </svg>
+                <span class="btn-text">大模型配置</span>
+            </button>
+
             <button class="control-btn" id="cameraBtn" title="请先连接服务器" disabled>
                 <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path
@@ -124,6 +176,80 @@
                 </svg>
                 <span class="btn-text">录音</span>
             </button>
+        </div>
+    </div>
+
+    <!-- 首次使用配置教程弹窗 -->
+    <div class="modal" id="llmGuideModal">
+        <div class="modal-content settings-modal">
+            <div class="modal-header">
+                <h2>首次配置：OpenClaw & 小智大模型 Key</h2>
+                <button class="close-btn" id="closeLlmGuideModalBtn">&times;</button>
+            </div>
+            <div class="modal-body llm-guide-body" style="max-height: 70vh; overflow-y: auto;">
+                <h3>第一步：配置 OpenClaw 使用的大模型以及 Key</h3>
+                <ol>
+                    <li>通过 SSH 连接到云端实例。</li>
+                    <li>进入 OpenClaw 项目目录并执行配置命令：
+                        <pre style="white-space: pre; margin-top: 4px;">cd ~/open-claw/
+pnpm openclaw config</pre>
+                    </li>
+                    <li>根据终端提示：
+                        <ul>
+                            <li>选择 <strong>Local</strong> 模式。</li>
+                            <li>选择你要用的 <strong>大模型提供商</strong>（例如 OpenAI、Moonshot、DeepSeek 等）。</li>
+                            <li>为对应模型填写 <strong>API Key / Base URL / 模型名称</strong>。</li>
+                        </ul>
+                    </li>
+                    <li>配置完成后，OpenClaw 会将这些信息写入它自己的配置文件，之后 xiaozhi 通过 OpenClaw 转发复杂任务就会使用这些大模型。</li>
+                </ol>
+
+                <h3 style="margin-top: 16px;">第二步：配置小智（xiaozhi-server）使用的大模型以及 Key</h3>
+                <p>你可以在下面两种方案中选择 <strong>任意一种</strong> 完成配置：</p>
+
+                <h4>方案一（推荐）：在网页中一键写入 DeepSeek Key</h4>
+                <p style="margin-top: 4px;">直接在下方输入 DeepSeek 的 API Key，点击按钮后会自动写入服务器上的 <code>data/.config.yaml</code>（仅修改 <code>LLM.DeepSeekLLM.api_key</code>）：</p>
+                <div class="input-group" style="margin-top: 6px; gap: 8px; align-items: center;">
+                    <input
+
+                        id="llmDeepseekApiKey"
+                        placeholder="例如：sk-xxx（DeepSeek API Key）"
+                        style="flex: 1; min-width: 0;"
+                    />
+                    <button type="button" class="btn-primary" id="llmDeepseekSaveBtn">
+                        保存配置
+                    </button>
+                </div>
+                <div id="llmDeepseekSaveStatus" style="margin-top: 4px; font-size: 12px; color: #666;"></div>
+
+                <h4 style="margin-top: 16px;">方案二：通过 SSH 编辑配置文件</h4>
+                <ol>
+                    <li>通过 SSH 连接到云端实例。</li>
+                    <li>打开配置文件（推荐使用覆盖配置）：
+                        <pre style="white-space: pre; margin-top: 4px;">cd /path/to/xiaozhi-esp32-server/main/xiaozhi-server
+vim data/.config.yaml</pre>
+                        如果 <code>data/.config.yaml</code> 不存在，可参考 <code>config.yaml</code> 中的示例拷贝一份到 <code>data/.config.yaml</code> 再修改。
+                    </li>
+                    <li>在 <code>LLM:</code> 段落中选择你要用的大模型，并填写 Key，例如（以 DeepSeek 为例）：
+                        <pre style="white-space: pre; margin-top: 4px;">LLM:
+  DeepSeekLLM:
+    type: openai
+    model_name: deepseek-chat
+    url: https://api.deepseek.com
+    api_key: 你的DeepSeek API Key</pre>
+                    </li>
+                    <li>如果你要用其他厂商（OpenAI、Moonshot Kimi 等），可以在 <code>config.yaml</code> 的 <code>LLM</code> 区块里找到对应示例，把 <strong>type / model_name / url / api_key</strong> 填成你自己的，然后同步到 <code>data/.config.yaml</code> 中。</li>
+                    <li>保存文件后，重启小智服务（或下次重启时生效），小智本地对话就会使用你配置的大模型和 Key。</li>
+                </ol>
+
+                <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
+                    <label style="font-size: 13px; display: flex; align-items: center; gap: 4px;">
+                        <input type="checkbox" id="llmGuideDontShowAgain">
+                        不再提示
+                    </label>
+                    <button class="btn-primary" id="llmGuideGotItBtn">我已配置完成</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -169,8 +295,12 @@
                     <div class="connection-controls">
                         <div class="input-group">
                             <label for="otaUrl">OTA服务器地址:</label>
-                            <input type="text" id="otaUrl" value="http://127.0.0.1:8002/xiaozhi/ota/"
-                                placeholder="OTA服务器地址，如：http://127.0.0.1:8002/xiaozhi/ota/" />
+                            <input
+                                type="text"
+                                id="otaUrl"
+                                value=""
+                                placeholder="默认将自动填入 http://本机IP:端口/xiaozhi/ota/"
+                            />
                         </div>
                         <div class="input-group">
                             <label for="serverUrl">WebSocket服务器地址:</label>
@@ -357,6 +487,118 @@
 
     <!-- 主应用入口 -->
     <script type="module" src="js/app.js?v=0205"></script>
+
+    <!-- 自动填充 OTA 服务器地址为 http://当前origin/xiaozhi/ota/（通过 test_server 反向代理） -->
+    <script>
+        (function () {
+            const input = document.getElementById('otaUrl');
+            if (!input) return;
+            if (!input.value) {
+                input.value = `${window.location.origin}/xiaozhi/ota/`;
+            }
+        })();
+    </script>
+
+    <!-- 首次打开时弹出 LLM 配置教程（可选择不再提示），并支持直接写入 DeepSeek Key -->
+    <script>
+        (function () {
+            const modal = document.getElementById('llmGuideModal');
+            if (!modal) return;
+
+            const closeBtn = document.getElementById('closeLlmGuideModalBtn');
+            const gotItBtn = document.getElementById('llmGuideGotItBtn');
+            const dontShowAgain = document.getElementById('llmGuideDontShowAgain');
+            const saveBtn = document.getElementById('llmDeepseekSaveBtn');
+            const apiInput = document.getElementById('llmDeepseekApiKey');
+            const statusEl = document.getElementById('llmDeepseekSaveStatus');
+            const openGuideBtn = document.getElementById('llmGuideOpenBtn');
+
+            function hideModal() {
+                modal.style.display = 'none';
+                if (dontShowAgain && dontShowAgain.checked) {
+                    localStorage.setItem('xz_llmGuideDismissed', '1');
+                }
+            }
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', hideModal);
+            }
+            if (gotItBtn) {
+                gotItBtn.addEventListener('click', hideModal);
+            }
+
+            async function preloadDeepseekKey() {
+                if (!apiInput || !statusEl) return;
+                try {
+                    const resp = await fetch(`${window.location.origin}/xiaozhi/tester/llm-config`, {
+                        method: 'GET',
+                    });
+                    const data = await resp.json().catch(() => ({}));
+                    if (resp.ok && data.ok && typeof data.api_key === 'string' && data.api_key.trim()) {
+                        apiInput.value = data.api_key.trim();
+                        statusEl.textContent = '已从服务器读取当前配置中的 DeepSeek API Key。';
+                        statusEl.style.color = '#4b5563';
+                    }
+                } catch (e) {
+                    // 读取失败不影响后续手动填写
+                    console.warn('预加载 DeepSeek Key 失败:', e);
+                }
+            }
+
+            if (saveBtn && apiInput && statusEl) {
+                saveBtn.addEventListener('click', async () => {
+                    const key = apiInput.value.trim();
+                    if (!key) {
+                        statusEl.textContent = '请输入 DeepSeek API Key';
+                        statusEl.style.color = '#dc2626';
+                        return;
+                    }
+                    statusEl.textContent = '正在写入服务器配置...';
+                    statusEl.style.color = '#4b5563';
+                    try {
+                        const resp = await fetch(`${window.location.origin}/xiaozhi/tester/llm-config`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ api_key: key }),
+                        });
+                        const data = await resp.json().catch(() => ({}));
+                        if (resp.ok && data.ok) {
+                            if (data.restart === 'ok') {
+                                statusEl.textContent = '已成功写入配置并重启 xiaozhi 服务，需等待 1 分钟左右完成重启方能生效。';
+                                statusEl.style.color = '#16a34a';
+                            } else if (data.restart === 'failed') {
+                                statusEl.textContent = '已写入配置，但重启 xiaozhi 服务失败：' + (data.restart_error || '');
+                                statusEl.style.color = '#ea580c';
+                            } else {
+                                statusEl.textContent = '已成功写入 data/.config.yaml（DeepSeekLLM.api_key）。';
+                                statusEl.style.color = '#16a34a';
+                            }
+                        } else {
+                            statusEl.textContent = '写入失败：' + (data.error || resp.statusText || resp.status);
+                            statusEl.style.color = '#dc2626';
+                        }
+                    } catch (e) {
+                        statusEl.textContent = '写入失败：' + e;
+                        statusEl.style.color = '#dc2626';
+                    }
+                });
+            }
+
+            function showGuideModal() {
+                modal.style.display = 'block';
+                preloadDeepseekKey();
+            }
+
+            if (openGuideBtn) {
+                openGuideBtn.addEventListener('click', showGuideModal);
+            }
+
+            // 仅当用户未选择「不再提示」时，在加载后自动显示一次
+            if (localStorage.getItem('xz_llmGuideDismissed') !== '1') {
+                showGuideModal();
+            }
+        })();
+    </script>
 
     <!-- 全局错误处理 -->
     <script>

@@ -13,20 +13,53 @@ function generateRandomMac() {
     return mac;
 }
 
+// 从后端测试服务器获取默认的 deviceId（优先使用 ~/.openclaw/openclaw.json 中的 xiaozhi.deviceId）
+async function loadDefaultDeviceMacFromServer() {
+    try {
+        const origin = window.location.origin;
+        const resp = await fetch(`${origin}/xiaozhi/tester/config`, { method: 'GET' });
+        if (!resp.ok) {
+            return null;
+        }
+        const data = await resp.json();
+        if (data && data.ok && data.deviceId) {
+            const id = String(data.deviceId).trim();
+            return id || null;
+        }
+    } catch (e) {
+        console.warn('加载默认 deviceId 失败:', e);
+    }
+    return null;
+}
+
 // 加载配置
 export function loadConfig() {
     const deviceMacInput = document.getElementById('deviceMac');
     const deviceNameInput = document.getElementById('deviceName');
     const clientIdInput = document.getElementById('clientId');
     const otaUrlInput = document.getElementById('otaUrl');
-
-    // 从localStorage加载MAC地址，如果没有则生成新的
+    console.log('loadConfig');
+    // 1) 优先使用本地缓存（用户成功连接后保存）
     let savedMac = localStorage.getItem('xz_tester_deviceMac');
-    if (!savedMac) {
-        savedMac = generateRandomMac();
-        localStorage.setItem('xz_tester_deviceMac', savedMac);
+    if (savedMac) {
+        console.log('savedMac', savedMac);
+        deviceMacInput.value = savedMac;
+    } else {
+        console.log('no savedMac');
+        // 2) 没有缓存时：先尝试从后端读取 openclaw 配置；失败再随机生成
+        (async () => {
+            let mac = await loadDefaultDeviceMacFromServer();
+            console.log('mac', mac);
+            if (!mac) {
+                mac = generateRandomMac();
+                console.log('no mac, generateRandomMac', mac);
+            }
+            localStorage.setItem('xz_tester_deviceMac', mac);
+            if (deviceMacInput) {
+                deviceMacInput.value = mac;
+            }
+        })();
     }
-    deviceMacInput.value = savedMac;
 
     // 从localStorage加载其他配置
     const savedDeviceName = localStorage.getItem('xz_tester_deviceName');

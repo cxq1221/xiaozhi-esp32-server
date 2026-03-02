@@ -242,9 +242,8 @@ class UIController {
                 e.stopPropagation();
                 const modal = e.target.closest('.modal');
                 if (modal) {
-                    if (modal.id === 'settingsModal') {
-                        saveConfig();
-                    }
+                    // 关闭设置弹窗时不再立即保存配置
+                    // 设备 MAC / 名称 / clientId 等仅在「连接成功」后由 saveConfig 持久化
                     this.hideModal(modal.id);
                 }
             });
@@ -591,6 +590,11 @@ class UIController {
             wsHandler.onConnectionStateChange = (isConnected) => {
                 this.updateConnectionUI(isConnected);
                 this.updateDialButton(isConnected);
+
+                // 连接成功后，持久化当前配置（设备 MAC / 名称 / clientId）
+                if (isConnected) {
+                    saveConfig();
+                }
             };
 
             // Register chat message callback BEFORE connecting

@@ -171,6 +171,9 @@ class ConnectionHandler:
         # 初始化提示词管理器
         self.prompt_manager = PromptManager(self.config, self.logger)
 
+        # OpenClaw 会话保持：一旦某条消息交给 OpenClaw，在此时间戳之前的后续消息也一律转给 OpenClaw
+        self._openclaw_session_until = 0.0
+
     async def handle_connection(self, ws: websockets.ServerConnection):
         try:
             # 获取运行中的事件循环（必须在异步上下文中）
@@ -807,7 +810,20 @@ class ConnectionHandler:
             # depth == 0 代表用户发起的顶层对话，根据规则决定是否交给 OpenClaw 处理
             if depth == 0:
                 try:
-                    route_to_openclaw = self._should_route_to_openclaw(query)
+                    # 1) 若用户说「退出/好了」等，结束 OpenClaw 会话，后续按关键词重新判断
+                    if self._is_openclaw_session_exit_phrase(query):
+                        self._openclaw_session_until = 0.0
+                        self.logger.bind(tag=TAG).info("[OpenClaw] 用户说出结束语，已结束 OpenClaw 会话")
+
+                    # 2) 若当前处于 OpenClaw 会话期内，后续消息一律转给 OpenClaw（关联对话延续）
+                    if time.time() < self._openclaw_session_until:
+                        route_to_openclaw = True
+                        self._refresh_openclaw_session()
+                    else:
+                        route_to_openclaw = self._should_route_to_openclaw(query)
+                        if route_to_openclaw:
+                            self._start_openclaw_session()
+
                     if route_to_openclaw:
                         device_id = self.device_id or "esp32_default"
                         if hasattr(self, "loop") and self.loop is not None:
@@ -1296,6 +1312,33 @@ class ConnectionHandler:
             self.close_after_chat = True
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"Chat and close error: {str(e)}")
+
+    def _is_openclaw_session_exit_phrase(self, query: str) -> bool:
+        """用户说这些话时，结束 OpenClaw 会话，后续消息重新按关键词判断。"""
+        q = (query or "").strip()
+        if not q:
+            return False
+        exit_phrases = ["好了", "不用了", "退出", "结束", "就这", "可以了", "没事了"]
+        return q in exit_phrases or any(q == p or q.rstrip("。！？") == p for p in exit_phrases)
+
+    def _get_openclaw_session_seconds(self) -> int:
+        """从配置读取 OpenClaw 会话保持时长（秒），默认 300。"""
+        try:
+            llm_cfg = self.config.get("LLM") or self.config.get("llm") or {}
+            routing = llm_cfg.get("routing", {}) if isinstance(llm_cfg, dict) else {}
+            return int(routing.get("openclaw_session_seconds", 300))
+        except Exception:
+            return 300
+
+    def _start_openclaw_session(self) -> None:
+        """开始/进入 OpenClaw 会话：设置会话截止时间。"""
+        sec = self._get_openclaw_session_seconds()
+        self._openclaw_session_until = time.time() + sec
+
+    def _refresh_openclaw_session(self) -> None:
+        """在会话期内每发一条消息，刷新截止时间，保持会话延续。"""
+        sec = self._get_openclaw_session_seconds()
+        self._openclaw_session_until = time.time() + sec
 
     def _should_route_to_openclaw(self, query: str) -> bool:
         """

@@ -133,12 +133,17 @@ class OTAHandler(BaseHandler):
             str: websocket地址
         """
         server_config = self.config["server"]
-        websocket_config = server_config.get("websocket", "")
+        websocket_config = str(server_config.get("websocket", "")).strip()
 
-        if "你的" not in websocket_config:
+        # 配置优先级说明：
+        # - 如果配置了明确的外网地址（既不是空，也不包含占位符「你的」，也不是 localhost），直接返回；
+        # - 如果留空 / 使用示例值 / 配成 localhost，则自动根据本机 IP 和端口生成，
+        #   方便做镜像分发时不用改 IP。
+        if websocket_config and "你的" not in websocket_config and "localhost" not in websocket_config:
             return websocket_config
-        else:
-            return f"ws://{local_ip}:{port}/xiaozhi/v1/"
+
+        # 自动模式：使用本机 IP + 端口生成可被外部访问的地址
+        return f"ws://{local_ip}:{port}/xiaozhi/v1/"
 
     async def handle_post(self, request):
         """处理 OTA POST 请求
