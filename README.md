@@ -2,6 +2,47 @@
 
 <h1 align="center">小智后端服务xiaozhi-esp32-server</h1>
 
+## 🆕 本项目中新增的功能（本仓库内实现）
+
+本项目主要是给 xiaozhi-server 集成了 OpenClaw 功能，当后端判断任务较复杂时，将任务交给 OpenClaw 执行，完成两者的互通。
+![通信架构图](./xiaozhi-openclaw-arch.png)
+
+- **复杂任务智能路由到 OpenClaw**
+  - 在 `xiaozhi-server` 中增加与 OpenClaw 的双向通信链路：  
+    - 上行：通过 `GET /xiaozhi/updates` 将来自设备的消息推送到 OpenClaw；  
+    - 下行：通过 `POST /xiaozhi/reply` 接收 OpenClaw 的最终回复，并转换为 TTS 推回设备。
+  - 在 OpenClaw 侧实现 `xiaozhi` 扩展（`monitor.ts`, `channel.ts`, `runtime.ts`），支持：
+    - 长轮询拉取 `xiaozhi-server` 的待处理消息；
+    - 使用 OpenClaw 多模型 + 工具链处理复杂任务；
+    - 将最终结果回传给 `xiaozhi-server`，由其负责下发至 ESP32 设备。
+  - 在 `connection.py` 中增加“简单/复杂任务”路由逻辑：简单问题直接由本地 LLM 处理，复杂任务交给 OpenClaw。
+
+- **消息持久化与防重放：重启不丢任务**
+  - 为 `xiaozhi-server` 的上行消息实现**文件 + 内存**双层队列（`data/xiaozhi_updates.log`）：  
+    - 新消息写入内存队列的同时追加到日志文件；  
+    - 服务器重启时从日志恢复未消费消息；  
+    - OpenClaw 拉取成功后会删除已消费消息，避免重复处理。
+
+- **云端“一键体验”测试入口与 LLM 配置引导**
+  - 使用 `aiohttp` 重写测试服务器 `test_server.py`，在一台云主机上统一提供：  
+    - 测试页面静态资源托管；  
+    - OTA / WebSocket / 视觉分析等接口的反向代理（前端只需访问一个公网端口）；  
+    - 读取 `~/.openclaw/openclaw.json` 和 `data/.config.yaml` 的配置 API。
+  - 深度改造测试页面 `main/xiaozhi-server/test/index.html` 及相关 JS：  
+    - 自动根据当前访问 origin 填充 OTA 地址；  
+    - 默认设备 MAC 从 OpenClaw 配置读取（成功连接后再写入本地缓存）；  
+    - 新增“首次使用”引导弹窗，手把手说明如何配置 OpenClaw 与 Xiaozhi 使用的大模型与 Key；  
+    - 支持在网页中直接填写 DeepSeek Key，一键写入 `data/.config.yaml` 并自动执行 `systemctl restart xiaozhi`；  
+    - 增加常驻的“大模型配置”按钮与优化后的弹窗 UI（居中、圆角矩形按钮、图标等），方便随时进入配置。
+
+- **本地开发与可观测性增强**
+  - 在 OpenClaw `xiaozhi` 扩展中增加详细日志：  
+    - 拉取到 `xiaozhi-server` 消息时打印 `[xiaozhi] received message ...`；  
+    - 向 `xiaozhi-server` 回传最终回复时打印 `[xiaozhi] final reply to ...`，便于排查链路问题。
+  - 为测试页增加若干 UX 与安全性细节优化（如 DeepSeek Key 输入改为密码框、仅在连接成功后保存配置等）。
+
+> 以上功能均在不破坏原有架构的前提下实现，默认情况下，未启用 OpenClaw 时系统仍可按原有模式独立运行。
+
 <p align="center">
 本项目基于人机共生智能理论和技术研发智能终端软硬件体系<br/>为开源智能硬件项目
 <a href="https://github.com/78/xiaozhi-esp32">xiaozhi-esp32</a>提供后端服务<br/>
